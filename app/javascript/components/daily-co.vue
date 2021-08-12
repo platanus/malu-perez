@@ -2,10 +2,11 @@
   <div>
     DAILY CO
     <video
+      class="border border-rounded"
       auto-play
       muted
       plays-inline
-      :src="videoTrack"
+      ref="myVideo"
     />
     <!-- <daily-co-tile
       v-for="(id, callItem) in tiles"
@@ -29,15 +30,17 @@ export default {
       callObject: null,
       meetingEvents: ['joined-meeting', 'left-meeting', 'error'],
       participantsEvents: ['participant-joined', 'participant-updated', 'participant-left'],
+      participants: {},
       callItems: {},
       largeTiles: [],
       smallTiles: [],
       tiles: [],
     };
   },
-  async beforeMount() {
+  async mounted() {
     this.callObject = DailyIframe.createCallObject();
-    await this.callObject.join({ url: 'https://maluperez.daily.co/7cwQGQUZsyfF6VVThs2C' });
+    this.participants = await this.callObject.join({ url: 'https://maluperez.daily.co/7cwQGQUZsyfF6VVThs2C' });
+    this.$refs.myVideo.srcObject = this.participants.local ? new MediaStream([this.participants.local.videoTrack]) : ''
     const callItems = {};
     for (const [id, participant] of Object.entries(this.callObject.participants())) {
       console.log('HER CALLITEMS INSIDE FOR');
@@ -59,10 +62,12 @@ export default {
     meetingState() {
       return Boolean(this.callObject) ? this.callObject.meetingState() : null;
     },
-    async videoTrack() {
-      const participants = await this.callObject.participants();
-      debugger;
-      return participants.local.videoTrack.track;
+    videoTrack() {
+      if (Object.keys(this.participants).length === 0) {
+        return '';
+      } else {
+        return this.participants.local ? new this.participants.local.videoTrack : '';
+      }
     }
     // containsScreenShare() {
     //   return Object.keys(this.callItems).some((id) => this.isScreenShare(id));
@@ -71,7 +76,14 @@ export default {
     //   return Object.entries(this.callItems);
     // },
   },
-  mounted() {},
+  watch: {
+    videoTrack() {
+      if (this.$refs.myVideo) {
+        // debugger;
+        this.$refs.myVideo.srcObject = this.participants.local ? new MediaStream([this.videoTrack]) : ''
+      }
+    },
+  },
 //   watch: {
 //     callObject(newCallObject) {
 //       this.meetingEvents.forEach((event) => {
