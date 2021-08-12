@@ -4,9 +4,9 @@
     <video
       class="border border-rounded"
       auto-play
-      muted
       plays-inline
       ref="myVideo"
+      :src-object.prop.camel="videoTrack"
     />
     <!-- <daily-co-tile
       v-for="(id, callItem) in tiles"
@@ -37,10 +37,12 @@ export default {
       tiles: [],
     };
   },
+  // eslint-disable-next-line max-statements
   async mounted() {
     this.callObject = DailyIframe.createCallObject();
     this.participants = await this.callObject.join({ url: 'https://maluperez.daily.co/7cwQGQUZsyfF6VVThs2C' });
-    this.$refs.myVideo.srcObject = this.participants.local ? new MediaStream([this.participants.local.videoTrack]) : ''
+    console.log(`state of intial video track: ${this.participants.local.tracks.video.state}`);
+    // this.$refs.myVideo.srcObject = this.participants.local ? new MediaStream([this.participants.local.tracks.video.persistentTrack]) : '';
     const callItems = {};
     for (const [id, participant] of Object.entries(this.callObject.participants())) {
       console.log('HER CALLITEMS INSIDE FOR');
@@ -65,10 +67,10 @@ export default {
     videoTrack() {
       if (Object.keys(this.participants).length === 0) {
         return '';
-      } else {
-        return this.participants.local ? new this.participants.local.videoTrack : '';
       }
-    }
+
+      return this.participants.local ? this.participants.local.videoTrack : '';
+    },
     // containsScreenShare() {
     //   return Object.keys(this.callItems).some((id) => this.isScreenShare(id));
     // },
@@ -80,7 +82,7 @@ export default {
     videoTrack() {
       if (this.$refs.myVideo) {
         // debugger;
-        this.$refs.myVideo.srcObject = this.participants.local ? new MediaStream([this.videoTrack]) : ''
+        this.$refs.myVideo.srcObject = this.participants.local ? new MediaStream([this.videoTrack]) : '';
       }
     },
   },
