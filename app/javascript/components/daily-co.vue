@@ -15,6 +15,7 @@ export default {
       callObject: null,
       meetingEvents: ['joined-meeting', 'left-meeting', 'error'],
       participantsEvents: ['participant-joined', 'participant-updated', 'participant-left'],
+      callItems: {},
     };
   },
   created() {
@@ -45,6 +46,30 @@ export default {
     handleNewParticipantsState(event) {
       console.log(`handleNewParticipantState(${event})`);
       console.log(event);
+      this.updateCallItems();
+    },
+
+    shouldIncludeScreenCallItem(participant) {
+      const trackStatesForInclusion = ['loading', 'playable', 'interrupted'];
+
+      return (
+        trackStatesForInclusion.includes(participant.tracks.screenVideo.state) ||
+        trackStatesForInclusion.includes(participant.tracks.screenAudio.state)
+      );
+    },
+    updateCallItems() {
+      for (const [id, participant] of Object.entries(this.callObject.participants())) {
+        this.callItems[id] = {
+          videoTrackState: participant.tracks.video,
+          audioTrackState: participant.tracks.audio,
+        };
+        if (this.shouldIncludeScreenCallItem(participant)) {
+          this.callItems[`${id}-screen`] = {
+            videoTrackState: participant.tracks.screenVideo,
+            audioTrackState: participant.tracks.screenAudio,
+          };
+        }
+      }
     },
   },
 };
