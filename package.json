@@ -2,6 +2,8 @@
   "name": "malu_perez",
   "private": true,
   "dependencies": {
+    "@100mslive/hms-video": "^0.0.128",
+    "@100mslive/hms-video-store": "^0.2.8",
     "@activeadmin/activeadmin": "^2.9.0",
     "@fortawesome/fontawesome-free": "^5.15.4",
     "@rails/actioncable": "^6.0.0",
