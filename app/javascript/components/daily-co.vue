@@ -1,25 +1,37 @@
 <template>
   <div>
-    DAILY CO
-    <video
-      class="border border-rounded"
-      auto-play
-      plays-inline
-      ref="myVideo"
-      :src-object.prop.camel="videoTrack"
-    />
-    <!-- <daily-co-tile
-      v-for="(id, callItem) in tiles"
-      :key="`tile-${id}`"
-      :video-track-state="callItem.videoTrackState"
-      :audio-track-state="callItem.audioTrackState"
-      :is-local-person="isLocal(id)"
-    /> -->
+    <div
+      id="videoContainer"
+      class="grid grid-cols-3"
+    >
+      DAILY CO
+      <daily-co-tile
+        :v-if="tiles.length > 0"
+        v-for="participant in tiles"
+        :key="participant.id"
+        :user-id="participant.id"
+        :video-track-state="participant.videoTrackState"
+        :audio-track-state="participant.audioTrackState"
+        :is-local-person="participant.id === 'local'"
+      />
+    </div>
   </div>
 </template>
 <script>
 import DailyIframe from '@daily-co/daily-js';
 import DailyCoTile from './daily-co-tile.vue';
+
+const INITCALLSTATE = {
+  callItems: {
+    local: {
+      videoTrackState: null,
+      audioTrackState: null,
+    },
+  },
+  clickAllowTimeoutFired: false,
+  camOrMicError: null,
+  fatalError: null,
+};
 
 export default {
   name: 'DailyCo',
@@ -31,82 +43,153 @@ export default {
       meetingEvents: ['joined-meeting', 'left-meeting', 'error'],
       participantsEvents: ['participant-joined', 'participant-updated', 'participant-left'],
       participants: {},
+      participantsArray: [],
       callItems: {},
       largeTiles: [],
       smallTiles: [],
       tiles: [],
+      callState: INITCALLSTATE,
     };
   },
   // eslint-disable-next-line max-statements
-  async mounted() {
+  async created() {
     this.callObject = DailyIframe.createCallObject();
-    this.participants = await this.callObject.join({ url: 'https://maluperez.daily.co/7cwQGQUZsyfF6VVThs2C' });
-    console.log(`state of intial video track: ${this.participants.local.tracks.video.state}`);
-    // this.$refs.myVideo.srcObject = this.participants.local ? new MediaStream([this.participants.local.tracks.video.persistentTrack]) : '';
-    const callItems = {};
-    for (const [id, participant] of Object.entries(this.callObject.participants())) {
-      console.log('HER CALLITEMS INSIDE FOR');
-      console.log(this.callItems);
-      callItems[id] = {
-        videoTrackState: participant.tracks.video,
-        audioTrackState: participant.tracks.audio,
-      };
-      if (this.shouldIncludeScreenCallItem(participant)) {
-        callItems[`${id}-screen`] = {
-          videoTrackState: participant.tracks.screenVideo,
-          audioTrackState: participant.tracks.screenAudio,
-        };
-      }
-    }
-    this.callItems = callItems;
+    this.participants = await this.callObject.join({ url: 'https://maluperez.daily.co/yEZHPz2Nkncd1Q644cLQ' });
+    this.participantsArray = [...this.participantsArray, this.participants.local];
+    this.handleNewParticipantsState();
+    // console.log(`state of intial video track: ${this.participants.local.tracks.video.state}`);
+    // debugger;
+    // const divVideoContainer = document.getElementById('videoContainer');
+    // divVideoContainer.innerHTML = '';
+    // const video = this.h('video', {
+    //   class: 'bg-gray-700 h-64 w-96 rounded',
+    //   autoPlay: true,
+    // });
+    // const audio = this.h('audio', {
+    //   class: 'bg-gray-700 h-64 w-96 rounded',
+    //   autoPlay: true,
+    // });
+    // video.srcObject = new MediaStream([this.participants.local.tracks.video.persistentTrack]);
+    // audio.srcObject = new MediaStream([this.participants.local.tracks.audio.persistentTrack]);
+    // divVideoContainer.append(video);
+    // divVideoContainer.append(audio);
   },
   computed: {
-    meetingState() {
-      return Boolean(this.callObject) ? this.callObject.meetingState() : null;
-    },
-    videoTrack() {
-      if (Object.keys(this.participants).length === 0) {
-        return '';
-      }
-
-      return this.participants.local ? this.participants.local.videoTrack : '';
-    },
-    // containsScreenShare() {
-    //   return Object.keys(this.callItems).some((id) => this.isScreenShare(id));
+    // meetingState() {
+    //   return Boolean(this.callObject) ? this.callObject.meetingState() : null;
     // },
-    // callItemsEntries() {
-    //   return Object.entries(this.callItems);
+    // videoTrack() {
+    //   if (Object.keys(this.participants).length === 0) {
+    //     return '';
+    //   }
+
+    //   return this.participants.local ? this.participants.local.videoTrack : '';
     // },
   },
   watch: {
-    videoTrack() {
-      if (this.$refs.myVideo) {
-        // debugger;
-        this.$refs.myVideo.srcObject = this.participants.local ? new MediaStream([this.videoTrack]) : '';
+    callObject(newCallObject, oldCallObject) {
+      if (oldCallObject) {
+        this.meetingEvents.forEach((event) => {
+          oldCallObject.off(event, this.handleNewMeetingState);
+        });
+        this.participantsEvents.forEach((event) => {
+          oldCallObject.off(event, this.handleNewParticipantsState);
+        });
       }
+      this.meetingEvents.forEach((event) => {
+        newCallObject.on(event, this.handleNewMeetingState);
+      });
+      this.participantsEvents.forEach((event) => {
+        newCallObject.on(event, this.handleNewParticipantsState);
+      });
+    },
+    callState() {
+      this.tiles = this.getTiles();
     },
   },
-//   watch: {
-//     callObject(newCallObject) {
-//       this.meetingEvents.forEach((event) => {
-//         newCallObject.on(event, this.handleNewMeetingState);
-//       });
-//       this.participantsEvents.forEach((event) => {
-//         newCallObject.on(event, this.handleNewParticipantsState);
-//       });
-//     },
-//   },
   methods: {
-    // handleNewMeetingState(event) {
-    //   console.log(`handleNewMeetingState(${event})`);
-    //   console.log(event);
-    // },
-    // async handleNewParticipantsState(event) {
-    //   console.log(`handleNewParticipantState(${event})`);
-    //   console.log(event);
-    //   await this.updateCallItems();
-    //   this.tiles = Object.entries(this.callItems);
-    // },
+    handleNewMeetingState(event) {
+      if (event) {
+        console.log(`handleNewMeetingState(${event})`);
+        console.log(event);
+      }
+    },
+    handleNewParticipantsState(event) {
+      // debugger;
+      if (event) {
+        console.log(`handleNewParticipantState(${event})`);
+        console.log(event);
+        this.participants = this.callObject.participants;
+        this.participantsArray = [...this.participantsArray, event.participant];
+      }
+      // debugger;
+      // if (event.action === 'participant-updated' && event.participant.tracks.video.state === 'playable') {
+      //   this.addParticipant(event.participant);
+      // }
+      const callItems = this.getCallItems(this.callObject.participants());
+      this.callState = { ...this.callState, callItems };
+      // debugger;
+    },
+    getCallItems(participants) {
+      const callItems = { ...INITCALLSTATE.callItems }; // Ensure we *always* have a local participant
+      for (const [id, participant] of Object.entries(participants)) {
+        callItems[id] = {
+          videoTrackState: participant.tracks.video,
+          audioTrackState: participant.tracks.audio,
+        };
+        // if (shouldIncludeScreenCallItem(participant)) {
+          //   callItems[id + '-screen'] = {
+            //     videoTrackState: participant.tracks.screenVideo,
+        //     audioTrackState: participant.tracks.screenAudio,
+        //   };
+      }
+
+      return callItems;
+    },
+    getTiles() {
+      console.log(`this is CALLSTATE: ${this.callState}`);
+      if (!this.callState) return [];
+
+      const tiles = [];
+      // debugger;
+      Object.entries(this.callState.callItems).forEach(([id, callItem]) => {
+        const tile = {
+          id,
+          videoTrackState: callItem.videoTrackState,
+          audioTrackState: callItem.audioTrackState,
+        };
+        tiles.push(tile);
+      });
+      // debugger;
+
+      return tiles;
+    },
+    addTile(participant) {
+      const divVideoContainer = document.getElementById('videoContainer');
+      divVideoContainer.append(DailyCoTile.new);
+    },
+    addParticipant(participant) {
+      const divVideoContainer = document.getElementById('videoContainer');
+      // divVideoContainer.innerHTML = '';
+      // debugger;
+
+      const video = this.h('video', {
+        class: 'bg-gray-700 h-64 w-96 rounded',
+        autoPlay: true,
+      });
+      const audio = this.h('audio', {
+        class: 'bg-gray-700 h-64 w-96 rounded',
+        autoPlay: true,
+      });
+      video.srcObject = new MediaStream([participant.tracks.video.persistentTrack]);
+      audio.srcObject = new MediaStream([participant.tracks.audio.persistentTrack]);
+      const div = this.h('div', {
+        class: 'border rounded-md',
+        id: participant.session_id,
+      }, video, audio);
+      divVideoContainer.append(div);
+      // divVideoContainer.append(audio);
+    },
     shouldIncludeScreenCallItem(participant) {
       const trackStatesForInclusion = ['loading', 'playable', 'interrupted'];
 
@@ -134,6 +217,17 @@ export default {
     },
     isLocal(id) {
       return id === 'local';
+    },
+    h(tag, attrs = {}, ...children) {
+      const newElement = document.createElement(tag);
+      Object.keys(attrs).forEach((key) => {
+        newElement.setAttribute(key, attrs[key]);
+      });
+      children.forEach((child) => {
+        newElement.append(child);
+      });
+
+      return newElement;
     },
   },
 };
